@@ -6,3 +6,16 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model Message {
+  id     Int      @id @default(autoincrement())
+  sentAt DateTime @default(now())
+  text   String
+  from   String   @db.VarChar(150)
+  to     String   @db.VarChar(150)
+}
+
+model UserHistory {
+  username          String   @id @db.VarChar(150)
+  messagedUsernames String[] @db.VarChar(150)
+}
