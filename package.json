@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/spacesick/socketio-messaging#readme",
   "dependencies": {
+    "@prisma/client": "^4.14.1",
     "dotenv": "^16.0.3",
     "socket.io": "^4.6.1"
   },
