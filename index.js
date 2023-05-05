@@ -8,6 +8,16 @@ const io = require("socket.io")(httpServer, {
   },
 });
 
+async function saveNewMessage(text, from, to) {
+  await prisma.message.create({
+    data: {
+      text,
+      from,
+      to,
+    },
+  });
+}
+
 io.use((socket, next) => {
   socket.userId = socket.handshake.auth.userId;
   socket.username = socket.handshake.auth.username;
@@ -16,6 +26,16 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   socket.join(socket.username);
+
+  socket.on("send message", ({ text, to }) => {
+    const message = {
+      text,
+      from: socket.username,
+      to,
+    };
+    socket.to(to).to(socket.username).emit("send message", message);
+    saveNewMessage(text, socket.username, to);
+  });
 });
 
 httpServer.listen(process.env.PORT, () => {
