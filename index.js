@@ -8,6 +8,39 @@ const io = require("socket.io")(httpServer, {
   },
 });
 
+async function getUserHistoryByUsername(username) {
+  return prisma.userHistory.upsert({
+    where: {
+      username,
+    },
+    update: {},
+    create: {
+      username,
+      messagedUsernames: [],
+    },
+  });
+}
+
+async function getMessagesBetweenTwoUsers(firstUsername, secondUsername) {
+  return prisma.message.findMany({
+    where: {
+      OR: [
+        {
+          from: firstUsername,
+          to: secondUsername,
+        },
+        {
+          from: secondUsername,
+          to: firstUsername,
+        },
+      ],
+    },
+    orderBy: {
+      sentAt: "asc",
+    },
+  });
+}
+
 async function saveNewMessage(text, from, to) {
   await prisma.message.create({
     data: {
@@ -26,6 +59,22 @@ io.use((socket, next) => {
 
 io.on("connection", (socket) => {
   socket.join(socket.username);
+
+  let messagedUsers = [];
+  getUserHistoryByUsername(socket.username).then((userHistory) => {
+    userHistory.messagedUsernames.forEach((username) => {
+      getMessagesBetweenTwoUsers(socket.username, username)
+        .then((messages) => {
+          messagedUsers.push({
+            username: username,
+            messages: messages,
+          });
+        })
+        .then(() => {
+          socket.emit("list messaged users", messagedUsers);
+        });
+    });
+  });
 
   socket.on("send message", ({ text, to }) => {
     const message = {
