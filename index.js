@@ -41,6 +41,33 @@ async function getMessagesBetweenTwoUsers(firstUsername, secondUsername) {
   });
 }
 
+async function saveNewMessagedUserByUsername(username, newUsername) {
+  prisma.userHistory.update({
+    where: {
+      username,
+    },
+    data: {
+      messagedUsernames: {
+        push: newUsername,
+      },
+    },
+  });
+  prisma.userHistory.upsert({
+    where: {
+      username: newUsername,
+    },
+    update: {
+      messagedUsernames: {
+        push: username,
+      },
+    },
+    create: {
+      username: newUsername,
+      messagedUsernames: [],
+    },
+  });
+}
+
 async function saveNewMessage(text, from, to) {
   await prisma.message.create({
     data: {
@@ -73,6 +100,19 @@ io.on("connection", (socket) => {
         .then(() => {
           socket.emit("list messaged users", messagedUsers);
         });
+    });
+  });
+
+  socket.on("new messaged username", (messagedUsername) => {
+    saveNewMessagedUserByUsername(socket.username, messagedUsername);
+
+    socket.emit("new messaged user", {
+      username: messagedUsername,
+      messages: [],
+    });
+    socket.to(messagedUsername).emit("new messaged user", {
+      username: socket.username,
+      messages: [],
     });
   });
 
