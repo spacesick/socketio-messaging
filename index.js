@@ -41,30 +41,47 @@ async function getMessagesBetweenTwoUsers(firstUsername, secondUsername) {
   });
 }
 
-async function saveNewMessagedUserByUsername(username, newUsername) {
-  prisma.userHistory.update({
-    where: {
-      username,
-    },
-    data: {
-      messagedUsernames: {
-        push: newUsername,
-      },
-    },
+async function saveAndNotifyNewMessagedUser(messagedUsername, socket) {
+  const requester = socket.username;
+
+  if (requester === messagedUsername) return;
+
+  getUserHistoryByUsername(requester).then(async (userHistory) => {
+    if (!userHistory.messagedUsernames.includes(messagedUsername)) {
+      socket.emit("new messaged user", {
+        username: messagedUsername,
+        messages: [],
+      });
+      await prisma.userHistory.update({
+        where: {
+          username: requester,
+        },
+        data: {
+          messagedUsernames: {
+            push: messagedUsername,
+          },
+        },
+      });
+    }
   });
-  prisma.userHistory.upsert({
-    where: {
-      username: newUsername,
-    },
-    update: {
-      messagedUsernames: {
-        push: username,
-      },
-    },
-    create: {
-      username: newUsername,
-      messagedUsernames: [],
-    },
+
+  getUserHistoryByUsername(messagedUsername).then(async (userHistory) => {
+    if (!userHistory.messagedUsernames.includes(requester)) {
+      socket.to(messagedUsername).emit("new messaged user", {
+        username: requester,
+        messages: [],
+      });
+      await prisma.userHistory.update({
+        where: {
+          username: messagedUsername,
+        },
+        data: {
+          messagedUsernames: {
+            push: requester,
+          },
+        },
+      });
+    }
   });
 }
 
@@ -89,31 +106,27 @@ io.on("connection", (socket) => {
 
   let messagedUsers = [];
   getUserHistoryByUsername(socket.username).then((userHistory) => {
-    userHistory.messagedUsernames.forEach((username) => {
-      getMessagesBetweenTwoUsers(socket.username, username)
-        .then((messages) => {
-          messagedUsers.push({
-            username: username,
-            messages: messages,
+    if (userHistory.messagedUsernames.length) {
+      userHistory.messagedUsernames.forEach((username) => {
+        getMessagesBetweenTwoUsers(socket.username, username)
+          .then((messages) => {
+            messagedUsers.push({
+              username: username,
+              messages: messages,
+            });
+          })
+          .then(() => {
+            socket.emit("list messaged users", messagedUsers);
           });
-        })
-        .then(() => {
-          socket.emit("list messaged users", messagedUsers);
-        });
-    });
+      });
+    } 
+    else {
+      socket.emit("list messaged users", []);
+    }
   });
 
   socket.on("new messaged username", (messagedUsername) => {
-    saveNewMessagedUserByUsername(socket.username, messagedUsername);
-
-    socket.emit("new messaged user", {
-      username: messagedUsername,
-      messages: [],
-    });
-    socket.to(messagedUsername).emit("new messaged user", {
-      username: socket.username,
-      messages: [],
-    });
+    saveAndNotifyNewMessagedUser(messagedUsername, socket);
   });
 
   socket.on("send message", ({ text, to }) => {
