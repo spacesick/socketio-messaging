@@ -1,6 +1,6 @@
 # socketio-messaging
 
-This is a simple backend implementation for a real-time chatting web app using Node.js, Socket.io, and Prisma hooked to a PostgreSQL database. You can see a pairing frontend implementation in [one of my other repositories](https://github.com/spacesick/law_final_fe).
+This is a simple backend implementation for a real-time chatting web app using Node.js, Socket.io, and Prisma hooked to a PostgreSQL database. You can see a pairing frontend implementation in [one of my other repositories](https://github.com/spacesick/vehicle-rental-nuxt).
 
 ## Running the server
 
